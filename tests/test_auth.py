@@ -3,13 +3,13 @@ import pytest
 
 # --- POST /login ---
 
-def test_login_success_redirects_to_landing(client):
+def test_login_success_redirects_to_profile(client):
     response = client.post("/login", data={
         "email": "demo@spendly.com",
         "password": "demo123",
     }, follow_redirects=False)
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
+    assert response.headers["Location"].endswith("/profile")
 
 
 def test_login_success_sets_session(client):

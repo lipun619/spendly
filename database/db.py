@@ -89,3 +89,75 @@ def get_user_by_email(email):
     ).fetchone()
     conn.close()
     return user
+
+
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id, name, email, created_at FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    return user
+
+
+def get_user_stats(user_id):
+    conn = get_db()
+    row = conn.execute(
+        """
+        SELECT
+            COALESCE(SUM(CASE WHEN strftime('%Y-%m', date) = strftime('%Y-%m', 'now') THEN amount END), 0.0) AS total_this_month,
+            COALESCE(SUM(amount), 0.0) AS total_all_time,
+            COUNT(*) AS expense_count
+        FROM expenses
+        WHERE user_id = ?
+        """,
+        (user_id,),
+    ).fetchone()
+    top_row = conn.execute(
+        """
+        SELECT category FROM expenses
+        WHERE user_id = ?
+        GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1
+        """,
+        (user_id,),
+    ).fetchone()
+    conn.close()
+    return {
+        "total_this_month": row["total_this_month"] if row else 0.0,
+        "total_all_time":   row["total_all_time"]   if row else 0.0,
+        "expense_count":    row["expense_count"]    if row else 0,
+        "top_category":     top_row["category"]     if top_row else None,
+    }
+
+
+def get_recent_expenses(user_id, limit=5):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT id, amount, category, date, description
+        FROM expenses
+        WHERE user_id = ?
+        ORDER BY date DESC, id DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_expenses_by_category(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT category, COALESCE(SUM(amount), 0.0) AS total
+        FROM expenses
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return rows
