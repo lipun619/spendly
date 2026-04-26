@@ -1,7 +1,8 @@
 import sqlite3
+from datetime import datetime
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.db import create_user, get_db, get_expenses_by_category, get_recent_expenses, get_user_by_email, get_user_by_id, get_user_stats, init_db, seed_db
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-change-in-prod"
@@ -86,7 +87,7 @@ def login():
 
     session["user_id"] = user["id"]
     session["user_name"] = user["name"]
-    return redirect(url_for("landing"))
+    return redirect(url_for("profile"))
 
 
 # ------------------------------------------------------------------ #
@@ -101,7 +102,26 @@ def logout():
 
 @app.route("/profile")
 def profile():
-    return "Profile page — coming in Step 4"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    user = get_user_by_id(session["user_id"])
+    if user is None:
+        abort(404)
+    stats = get_user_stats(session["user_id"])
+    recent = get_recent_expenses(session["user_id"])
+    category_totals = get_expenses_by_category(session["user_id"])
+    max_cat_total = category_totals[0]["total"] if category_totals else 1.0
+    created_dt = datetime.strptime(user["created_at"][:10], "%Y-%m-%d")
+    member_since = created_dt.strftime("%B %Y")
+    return render_template(
+        "profile.html",
+        user=user,
+        stats=stats,
+        member_since=member_since,
+        recent=recent,
+        category_totals=category_totals,
+        max_cat_total=max_cat_total,
+    )
 
 
 @app.route("/expenses/add")
